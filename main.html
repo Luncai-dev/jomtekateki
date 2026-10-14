@@ -67,6 +67,11 @@
 <div class="card">
   <h2>TEKA-TEKI 30 SOALAN</h2>
 
+  
+<button id="startButton" type="button">
+  MULA BERMAIN
+</button>
+  
   <p id="progress">Memuatkan soalan...</p>
   <div class="timer" id="timer">10</div>
 
@@ -217,7 +222,71 @@
       "sambungan server disiapkan.";
   }
 
-  loadQuestions();
+  
+const startButton =
+  document.getElementById("startButton");
+
+startButton.addEventListener("click", async () => {
+  const playerToken =
+    sessionStorage.getItem("player_token");
+
+  if (!playerToken) {
+    alert("Sesi pemain tiada. Sila daftar dahulu.");
+    window.location.href = "daftar.html";
+    return;
+  }
+
+  startButton.disabled = true;
+  startButton.textContent = "Sedang memulakan...";
+  message.textContent = "";
+
+  try {
+    const response = await fetch(
+      PROJECT_URL +
+        "/functions/v1/teka-teki-api?action=start-game",
+      {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer " + playerToken,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({})
+      }
+    );
+
+    const result = await response.json();
+
+    if (response.status !== 201 ||
+        !result.game_token) {
+      throw new Error(
+        result.error || "Gagal memulakan permainan"
+      );
+    }
+
+    sessionStorage.setItem(
+      "game_token",
+      result.game_token
+    );
+
+    startButton.style.display = "none";
+    message.textContent = "";
+
+    // Paparkan soalan selepas sesi permainan dicipta
+    await loadQuestions();
+
+  } catch (error) {
+    message.textContent = error.message;
+    startButton.disabled = false;
+    startButton.textContent = "MULA BERMAIN";
+  }
+});
+
+// Paparan awal sebelum pemain mula
+progress.textContent = "Bersedia untuk bermain?";
+question.textContent = "Tekan MULA BERMAIN";
+timer.textContent = "10";
+options.replaceChildren();
+
 </script>
 </body>
 </html>
