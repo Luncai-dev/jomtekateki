@@ -1,0 +1,223 @@
+
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport"
+  content="width=device-width, initial-scale=1">
+<title>Teka-Teki 30 Soalan</title>
+
+<style>
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: Arial, sans-serif;
+    background: linear-gradient(135deg,#101b35,#203d70);
+    color: white;
+    display: grid;
+    place-items: center;
+    padding: 20px;
+  }
+
+  .card {
+    background: #1c2d50;
+    border-radius: 20px;
+    padding: 25px;
+    width: min(480px,100%);
+    text-align: center;
+  }
+
+  .timer {
+    font-size: 36px;
+    font-weight: bold;
+    color: #38bdf8;
+    margin: 15px 0;
+  }
+
+  .option {
+    display: block;
+    width: 100%;
+    padding: 14px;
+    margin: 10px 0;
+    background: #334d78;
+    color: white;
+    border: 1px solid #56729d;
+    border-radius: 10px;
+    cursor: pointer;
+    text-align: left;
+    font-size: 16px;
+  }
+
+  .option:hover {
+    background: #42679e;
+  }
+
+  button:disabled {
+    opacity: .6;
+    cursor: default;
+  }
+
+  #message { color: #fcd34d; }
+</style>
+</head>
+
+<body>
+<div class="card">
+  <h2>TEKA-TEKI 30 SOALAN</h2>
+
+  <p id="progress">Memuatkan soalan...</p>
+  <div class="timer" id="timer">10</div>
+
+  <h3 id="question">Sila tunggu...</h3>
+  <div id="options"></div>
+
+  <p id="message"></p>
+</div>
+
+<script>
+  // Gantikan dengan Project ID Supabase awak
+  const PROJECT_URL =
+    "https://PROJECT_ID_AWAK.supabase.co";
+
+  const API_URL =
+    PROJECT_URL + "/functions/v1/teka-teki-api?action=questions";
+
+  let questions = [];
+  let current = 0;
+  let timeLeft = 10;
+  let timerInterval = null;
+  let answered = false;
+
+  const progress = document.getElementById("progress");
+  const timer = document.getElementById("timer");
+  const question = document.getElementById("question");
+  const options = document.getElementById("options");
+  const message = document.getElementById("message");
+
+  function shuffle(items) {
+    const array = [...items];
+
+    for (let i = array.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [array[i],array[j]] = [array[j],array[i]];
+    }
+
+    return array;
+  }
+
+  async function loadQuestions() {
+    try {
+      const response = await fetch(API_URL);
+      if (!response.ok) {
+        throw new Error("HTTP " + response.status);
+      }
+
+      const data = await response.json();
+
+      if (!data.success || data.questions.length !== 30) {
+        throw new Error("Jumlah soalan tidak lengkap");
+      }
+
+      questions = data.questions;
+      showQuestion();
+    } catch (error) {
+      progress.textContent = "Ralat";
+      question.textContent =
+        "Gagal mengambil soalan daripada Supabase.";
+      timer.textContent = "-";
+      message.textContent = error.message;
+    }
+  }
+
+  function showQuestion() {
+    if (current >= questions.length) {
+      finishGame();
+      return;
+    }
+
+    answered = false;
+    timeLeft = 10;
+    timer.textContent = timeLeft;
+    message.textContent = "";
+
+    const q = questions[current];
+
+    progress.textContent =
+      "Soalan " + (current + 1) + " / 30";
+
+    question.textContent = q.question_text;
+    options.replaceChildren();
+
+    const choices = shuffle([
+      q.option_a,
+      q.option_b,
+      q.option_c,
+      q.option_d
+    ]);
+
+    for (const choice of choices) {
+      const button = document.createElement("button");
+      button.className = "option";
+      button.textContent = choice;
+      button.onclick = () => chooseAnswer(choice);
+      options.appendChild(button);
+    }
+
+    clearInterval(timerInterval);
+
+    timerInterval = setInterval(() => {
+      timeLeft--;
+      timer.textContent = timeLeft;
+
+      if (timeLeft <= 0) {
+        clearInterval(timerInterval);
+        chooseAnswer(null);
+      }
+    }, 1000);
+  }
+
+  function chooseAnswer(choice) {
+    if (answered) return;
+
+    answered = true;
+    clearInterval(timerInterval);
+
+    const q = questions[current];
+
+    // Hanya merekod pilihan untuk ujian paparan
+    console.log({
+      question_id: q.id,
+      selected_answer: choice
+    });
+
+    options.querySelectorAll("button")
+      .forEach(button => button.disabled = true);
+
+    message.textContent = choice === null
+      ? "Masa tamat!"
+      : "Jawapan direkodkan (mod percubaan).";
+
+    setTimeout(() => {
+      current++;
+      showQuestion();
+    }, 700);
+  }
+
+  function finishGame() {
+    clearInterval(timerInterval);
+    progress.textContent = "Permainan Tamat!";
+    timer.textContent = "✓";
+    question.textContent =
+      "Tahniah! Anda telah menjawab 30 soalan.";
+    options.replaceChildren();
+    message.textContent =
+      "Markah dan hadiah akan diaktifkan selepas " +
+      "sambungan server disiapkan.";
+  }
+
+  loadQuestions();
+</script>
+</body>
+</html>
