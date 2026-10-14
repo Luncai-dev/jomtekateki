@@ -1,0 +1,121 @@
+
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1">
+  <title>Daftar Pemain - Teka-Teki 30 Soalan</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #101b35;
+      color: white;
+      display: grid;
+      place-items: center;
+      min-height: 100vh;
+      margin: 0;
+    }
+    .card {
+      background: #1c2d50;
+      padding: 25px;
+      border-radius: 15px;
+      width: min(350px, 85vw);
+      text-align: center;
+    }
+    input, button {
+      box-sizing: border-box;
+      width: 100%;
+      padding: 13px;
+      margin: 8px 0;
+      border-radius: 8px;
+      border: none;
+      font-size: 15px;
+    }
+    button {
+      background: #38bdf8;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    button:disabled {
+      opacity: .6;
+      cursor: wait;
+    }
+    #message {
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>TEKA-TEKI 30 SOALAN</h2>
+    <p>Daftar untuk mula bermain!</p>
+
+    <form id="form">
+      <input id="name" placeholder="Nama pemain"
+        maxlength="80" required>
+
+      <input id="phone" type="tel"
+        placeholder="Nombor telefon (01xxxxxxxx)"
+        required>
+
+      <button id="submit" type="submit">
+        DAFTAR SEKARANG
+      </button>
+    </form>
+
+    <p id="message" role="status"></p>
+  </div>
+
+  <script>
+    // Gantikan dengan Project URL Supabase
+    const PROJECT_URL =
+      "https://uorvbnckisrewqbfetes.supabase.co";
+
+    const API_URL =
+      PROJECT_URL + "/functions/v1/teka-teki-api";
+
+    const form = document.getElementById("form");
+    const message = document.getElementById("message");
+    const button = document.getElementById("submit");
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      button.disabled = true;
+      message.textContent = "Sedang mendaftar...";
+
+      try {
+        const response = await fetch(API_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            name: document.getElementById("name")
+              .value.trim(),
+            phone: document.getElementById("phone")
+              .value.trim()
+          })
+        });
+
+        const result = await response.json();
+
+        if (response.status === 201) {
+          message.textContent =
+            "Pendaftaran berjaya! " +
+            "Permainan akan disediakan selepas ini.";
+          form.reset();
+        } else {
+          message.textContent =
+            result.error || "Pendaftaran gagal";
+        }
+      } catch (error) {
+        message.textContent =
+          "Tidak dapat menghubungi server.";
+      } finally {
+        button.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
