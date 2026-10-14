@@ -71,6 +71,16 @@ button:disabled {
   <div id="options"></div>
 
   <p id="message"></p>
+
+<button
+  id="claimButton"
+  type="button"
+  style="display:none;"
+>
+  TUNTUT HADIAH MELALUI WHATSAPP
+</button>
+
+ 
 </div>
 
 <script>
@@ -86,6 +96,13 @@ const timer = document.getElementById("timer");
 const question = document.getElementById("question");
 const options = document.getElementById("options");
 const message = document.getElementById("message");
+
+ 
+const claimButton =
+  document.getElementById("claimButton");
+
+let finalResult = null;
+
 
 let gameToken = sessionStorage.getItem("game_token");
 let timerInterval = null;
@@ -240,7 +257,42 @@ async function submitAnswer(answer) {
   }
 }
 
+
 function finishGame(result) {
+  stopTimer();
+
+  // Simpan keputusan untuk proses tuntutan
+  finalResult = result;
+
+  // Jangan padam game_token lagi
+  // Token diperlukan untuk claim-prize
+
+  progress.textContent = "PERMAINAN TAMAT!";
+  timer.textContent = "✓";
+
+  question.textContent =
+    "Markah: " + result.correct_answers + " / 30";
+
+  options.replaceChildren();
+
+  const amount = Number(result.prize_amount);
+
+  if (amount > 0) {
+    message.textContent =
+      "Tahniah! Hadiah anda: RM" +
+      amount.toFixed(2) +
+      ". Tertakluk kepada pengesahan admin.";
+
+    claimButton.style.display = "block";
+  } else {
+    message.textContent =
+      "Terima kasih kerana bermain! " +
+      "Anda belum layak menerima hadiah.";
+
+    claimButton.style.display = "none";
+  }
+}
+
   stopTimer();
 
   sessionStorage.removeItem("game_token");
@@ -260,6 +312,69 @@ function finishGame(result) {
     " (belum disahkan untuk pembayaran)";
 }
 
+ 
+claimButton.addEventListener("click", async () => {
+  if (!gameToken || !finalResult) {
+    message.textContent =
+      "Sesi tuntutan tidak tersedia.";
+    return;
+  }
+
+  claimButton.disabled = true;
+  claimButton.textContent = "Merekodkan tuntutan...";
+
+  try {
+    const result = await apiRequest(
+      "claim-prize",
+      "POST",
+      gameToken,
+      {}
+    );
+
+    const amount = Number(result.amount).toFixed(2);
+    const claimId = result.claim_id;
+
+    const whatsappMessage =
+      "Salam Admin Teka-Teki 30 Soalan.\n\n" +
+      "Saya ingin membuat tuntutan hadiah.\n" +
+      "Markah: " + finalResult.correct_answers + "/30\n" +
+      "Jumlah hadiah: RM" + amount + "\n" +
+      "ID Tuntutan: " + claimId + "\n\n" +
+      "Saya akan lampirkan screenshot keputusan " +
+      "untuk semakan admin.";
+
+    const whatsappURL =
+      "https://wa.me/60194607688?text=" +
+      encodeURIComponent(whatsappMessage);
+
+    message.textContent =
+      "Tuntutan telah direkodkan. " +
+      "Sila hantar mesej dan screenshot melalui WhatsApp.";
+
+    claimButton.textContent = "BUKA WHATSAPP";
+
+    claimButton.onclick = () => {
+      window.open(
+        whatsappURL,
+        "_blank",
+        "noopener,noreferrer"
+      );
+    };
+
+    // Buka WhatsApp selepas tuntutan direkodkan
+    claimButton.onclick();
+
+  } catch (error) {
+    message.textContent =
+      "Gagal merekodkan tuntutan: " + error.message;
+
+    claimButton.disabled = false;
+    claimButton.textContent =
+      "TUNTUT HADIAH MELALUI WHATSAPP";
+  }
+});
+
+ 
 startButton.addEventListener("click", async () => {
   const playerToken =
     sessionStorage.getItem("player_token");
