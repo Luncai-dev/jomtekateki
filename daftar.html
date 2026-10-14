@@ -101,12 +101,27 @@ const API_URL =
 
         const result = await response.json();
 
-        if (response.status === 201) {
-          message.textContent =
-            "Pendaftaran berjaya! " +
-            "Permainan akan disediakan selepas ini.";
-          form.reset();
-        } else {
+       
+if (response.status === 201) {
+  if (!result.session_token) {
+    throw new Error("Token pemain tidak diterima");
+  }
+
+  // Simpan token dalam sesi tab pelayar ini sahaja
+  sessionStorage.setItem(
+    "player_token",
+    result.session_token
+  );
+
+  message.textContent =
+    "Pendaftaran berjaya! Membuka permainan...";
+
+  form.reset();
+
+  // Buka halaman permainan
+  window.location.href = "main.html";
+}
+ else {
           message.textContent =
             result.error || "Pendaftaran gagal";
         }
