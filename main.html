@@ -258,7 +258,39 @@ async function submitAnswer(answer) {
 }
 
 
+
 function finishGame(result) {
+  stopTimer();
+
+  // Simpan keputusan untuk tuntutan hadiah
+  finalResult = result;
+
+  progress.textContent = "PERMAINAN TAMAT!";
+  timer.textContent = "✓";
+
+  question.textContent =
+    "Markah: " + result.correct_answers + " / 30";
+
+  options.replaceChildren();
+
+  const amount = Number(result.prize_amount);
+
+  if (amount > 0) {
+    message.textContent =
+      "Tahniah! Anda layak menerima RM" +
+      amount.toFixed(2) +
+      ". Tertakluk kepada pengesahan admin.";
+
+    claimButton.style.display = "block";
+  } else {
+    message.textContent =
+      "Terima kasih kerana bermain! " +
+      "Anda belum layak menerima hadiah.";
+
+    claimButton.style.display = "none";
+  }
+}
+
   stopTimer();
 
   // Simpan keputusan untuk proses tuntutan
