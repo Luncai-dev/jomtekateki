@@ -4,62 +4,55 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport"
-  content="width=device-width, initial-scale=1">
+ content="width=device-width,initial-scale=1">
 <title>Teka-Teki 30 Soalan</title>
 
 <style>
-  * { box-sizing: border-box; }
-
-  body {
-    margin: 0;
-    min-height: 100vh;
-    font-family: Arial, sans-serif;
-    background: linear-gradient(135deg,#101b35,#203d70);
-    color: white;
-    display: grid;
-    place-items: center;
-    padding: 20px;
-  }
-
-  .card {
-    background: #1c2d50;
-    border-radius: 20px;
-    padding: 25px;
-    width: min(480px,100%);
-    text-align: center;
-  }
-
-  .timer {
-    font-size: 36px;
-    font-weight: bold;
-    color: #38bdf8;
-    margin: 15px 0;
-  }
-
-  .option {
-    display: block;
-    width: 100%;
-    padding: 14px;
-    margin: 10px 0;
-    background: #334d78;
-    color: white;
-    border: 1px solid #56729d;
-    border-radius: 10px;
-    cursor: pointer;
-    text-align: left;
-    font-size: 16px;
-  }
-
-  .option:hover {
-    background: #42679e;
-  }
-
-  button:disabled {
-    opacity: .6;
-    cursor: default;
-  }
-
-  #message { color: #fcd34d; }
+* { box-sizing:border-box; }
+body {
+  margin:0;
+  min-height:100vh;
+  font-family:Arial,sans-serif;
+  background:linear-gradient(135deg,#101b35,#203d70);
+  color:white;
+  display:grid;
+  place-items:center;
+  padding:20px;
+}
+.card {
+  background:#1c2d50;
+  border-radius:20px;
+  padding:25px;
+  width:min(480px,100%);
+  text-align:center;
+}
+.timer {
+  font-size:40px;
+  font-weight:bold;
+  color:#38bdf8;
+  margin:15px 0;
+}
+.option, #startButton {
+  display:block;
+  width:100%;
+  padding:14px;
+  margin:10px 0;
+  background:#334d78;
+  color:white;
+  border:1px solid #56729d;
+  border-radius:10px;
+  cursor:pointer;
+  font-size:16px;
+}
+.option { text-align:left; }
+.option:hover, #startButton:hover {
+  background:#42679e;
+}
+button:disabled {
+  opacity:.6;
+  cursor:default;
+}
+#message { color:#fcd34d; }
 </style>
 </head>
 
@@ -67,164 +60,205 @@
 <div class="card">
   <h2>TEKA-TEKI 30 SOALAN</h2>
 
-  
-<button id="startButton" type="button">
-  MULA BERMAIN
-</button>
-  
-  <p id="progress">Memuatkan soalan...</p>
+  <button id="startButton" type="button">
+    MULA BERMAIN
+  </button>
+
+  <p id="progress">Bersedia untuk bermain?</p>
   <div class="timer" id="timer">10</div>
 
-  <h3 id="question">Sila tunggu...</h3>
+  <h3 id="question">Tekan MULA BERMAIN</h3>
   <div id="options"></div>
 
   <p id="message"></p>
 </div>
 
 <script>
-  // Gantikan dengan Project ID Supabase awak
-  const PROJECT_URL =
-    "https://uorvbnckisrewqbfetes.supabase.co";
+const PROJECT_URL =
+  "https://uorvbnckisrewqbfetes.supabase.co";
 
-  const API_URL =
-    PROJECT_URL + "/functions/v1/teka-teki-api?action=questions";
+const API =
+  PROJECT_URL + "/functions/v1/teka-teki-api";
 
-  let questions = [];
-  let current = 0;
-  let timeLeft = 10;
-  let timerInterval = null;
-  let answered = false;
+const startButton = document.getElementById("startButton");
+const progress = document.getElementById("progress");
+const timer = document.getElementById("timer");
+const question = document.getElementById("question");
+const options = document.getElementById("options");
+const message = document.getElementById("message");
 
-  const progress = document.getElementById("progress");
-  const timer = document.getElementById("timer");
-  const question = document.getElementById("question");
-  const options = document.getElementById("options");
-  const message = document.getElementById("message");
+let gameToken = sessionStorage.getItem("game_token");
+let timerInterval = null;
+let submitting = false;
+let currentQuestion = 0;
+let clockOffset = 0;
 
-  function shuffle(items) {
-    const array = [...items];
+function shuffle(array) {
+  const items = [...array];
 
-    for (let i = array.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [array[i],array[j]] = [array[j],array[i]];
-    }
-
-    return array;
+  for (let i = items.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [items[i], items[j]] = [items[j], items[i]];
   }
 
-  async function loadQuestions() {
-    try {
-      const response = await fetch(API_URL);
-      if (!response.ok) {
-        throw new Error("HTTP " + response.status);
-      }
+  return items;
+}
 
-      const data = await response.json();
+async function apiRequest(action, method, token, body) {
+  const response = await fetch(API + "?action=" + action, {
+    method,
+    headers: {
+      "Authorization": "Bearer " + token,
+      "Content-Type": "application/json"
+    },
+    ...(body !== undefined
+      ? { body: JSON.stringify(body) }
+      : {})
+  });
 
-      if (!data.success || data.questions.length !== 30) {
-        throw new Error("Jumlah soalan tidak lengkap");
-      }
+  const data = await response.json();
 
-      questions = data.questions;
-      showQuestion();
-    } catch (error) {
-      progress.textContent = "Ralat";
-      question.textContent =
-        "Gagal mengambil soalan daripada Supabase.";
-      timer.textContent = "-";
-      message.textContent = error.message;
+  if (!response.ok || !data.success) {
+    throw new Error(
+      data.error || "Ralat HTTP " + response.status
+    );
+  }
+
+  return data;
+}
+
+function stopTimer() {
+  clearInterval(timerInterval);
+  timerInterval = null;
+}
+
+async function showCurrentQuestion() {
+  stopTimer();
+  options.replaceChildren();
+  message.textContent = "Memuatkan soalan...";
+
+  const data = await apiRequest(
+    "current-question", "GET", gameToken
+  );
+
+  if (data.finished) {
+    progress.textContent = "Permainan tamat";
+    question.textContent = "Semua soalan telah dijawab.";
+    timer.textContent = "✓";
+    message.textContent =
+      "Permainan selesai. Sila semak keputusan.";
+    return;
+  }
+
+  currentQuestion = data.question_number;
+
+  progress.textContent =
+    "Soalan " + currentQuestion + " / 30";
+
+  question.textContent = data.question.question_text;
+  message.textContent = "";
+
+  // Laraskan jam pelayar kepada masa server
+  clockOffset =
+    Date.parse(data.server_time) - Date.now();
+
+  const deadline = Date.parse(data.deadline);
+
+  // Kekalkan huruf jawapan asal walaupun butang diacak
+  const choices = shuffle([
+    { key:"A", text:data.question.option_a },
+    { key:"B", text:data.question.option_b },
+    { key:"C", text:data.question.option_c },
+    { key:"D", text:data.question.option_d }
+  ]);
+
+  for (const choice of choices) {
+    const button = document.createElement("button");
+    button.className = "option";
+    button.textContent = choice.text;
+    button.onclick = () => submitAnswer(choice.key);
+    options.appendChild(button);
+  }
+
+  function updateTimer() {
+    const remaining = Math.max(
+      0,
+      Math.ceil(
+        (deadline - (Date.now() + clockOffset)) / 1000
+      )
+    );
+
+    timer.textContent = remaining;
+
+    if (remaining <= 0) {
+      stopTimer();
+      submitAnswer(null);
     }
   }
 
-  function showQuestion() {
-    if (current >= questions.length) {
-      finishGame();
+  updateTimer();
+
+  if (!submitting) {
+    timerInterval = setInterval(updateTimer, 200);
+  }
+}
+
+async function submitAnswer(answer) {
+  if (submitting || !gameToken) return;
+
+  submitting = true;
+  stopTimer();
+
+  options.querySelectorAll("button")
+    .forEach(button => button.disabled = true);
+
+  message.textContent =
+    answer === null
+      ? "Masa tamat! Menyimpan jawapan..."
+      : "Menyimpan jawapan...";
+
+  try {
+    const result = await apiRequest(
+      "submit-answer",
+      "POST",
+      gameToken,
+      { answer }
+    );
+
+    if (result.finished) {
+      finishGame(result);
       return;
     }
 
-    answered = false;
-    timeLeft = 10;
-    timer.textContent = timeLeft;
-    message.textContent = "";
+    submitting = false;
+    await showCurrentQuestion();
 
-    const q = questions[current];
-
-    progress.textContent =
-      "Soalan " + (current + 1) + " / 30";
-
-    question.textContent = q.question_text;
-    options.replaceChildren();
-
-    const choices = shuffle([
-      q.option_a,
-      q.option_b,
-      q.option_c,
-      q.option_d
-    ]);
-
-    for (const choice of choices) {
-      const button = document.createElement("button");
-      button.className = "option";
-      button.textContent = choice;
-      button.onclick = () => chooseAnswer(choice);
-      options.appendChild(button);
-    }
-
-    clearInterval(timerInterval);
-
-    timerInterval = setInterval(() => {
-      timeLeft--;
-      timer.textContent = timeLeft;
-
-      if (timeLeft <= 0) {
-        clearInterval(timerInterval);
-        chooseAnswer(null);
-      }
-    }, 1000);
-  }
-
-  function chooseAnswer(choice) {
-    if (answered) return;
-
-    answered = true;
-    clearInterval(timerInterval);
-
-    const q = questions[current];
-
-    // Hanya merekod pilihan untuk ujian paparan
-    console.log({
-      question_id: q.id,
-      selected_answer: choice
-    });
-
-    options.querySelectorAll("button")
-      .forEach(button => button.disabled = true);
-
-    message.textContent = choice === null
-      ? "Masa tamat!"
-      : "Jawapan direkodkan (mod percubaan).";
-
-    setTimeout(() => {
-      current++;
-      showQuestion();
-    }, 700);
-  }
-
-  function finishGame() {
-    clearInterval(timerInterval);
-    progress.textContent = "Permainan Tamat!";
-    timer.textContent = "✓";
-    question.textContent =
-      "Tahniah! Anda telah menjawab 30 soalan.";
-    options.replaceChildren();
+  } catch (error) {
     message.textContent =
-      "Markah dan hadiah akan diaktifkan selepas " +
-      "sambungan server disiapkan.";
+      "Ralat menyimpan jawapan: " + error.message;
+    submitting = false;
   }
+}
 
-  
-const startButton =
-  document.getElementById("startButton");
+function finishGame(result) {
+  stopTimer();
+
+  sessionStorage.removeItem("game_token");
+  gameToken = null;
+
+  progress.textContent = "PERMAINAN TAMAT!";
+  timer.textContent = "✓";
+
+  question.textContent =
+    "Markah: " + result.correct_answers + " / 30";
+
+  options.replaceChildren();
+
+  message.textContent =
+    "Hadiah dikira: RM" +
+    Number(result.prize_amount).toFixed(2) +
+    " (belum disahkan untuk pembayaran)";
+}
 
 startButton.addEventListener("click", async () => {
   const playerToken =
@@ -232,61 +266,38 @@ startButton.addEventListener("click", async () => {
 
   if (!playerToken) {
     alert("Sesi pemain tiada. Sila daftar dahulu.");
-    window.location.href = "daftar.html";
+    location.href = "daftar.html";
     return;
   }
 
   startButton.disabled = true;
-  startButton.textContent = "Sedang memulakan...";
-  message.textContent = "";
+  message.textContent = "Memulakan permainan...";
 
   try {
-    const response = await fetch(
-      PROJECT_URL +
-        "/functions/v1/teka-teki-api?action=start-game",
-      {
-        method: "POST",
-        headers: {
-          "Authorization": "Bearer " + playerToken,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({})
-      }
+    const result = await apiRequest(
+      "start-game", "POST", playerToken, {}
     );
 
-    const result = await response.json();
-
-    if (response.status !== 201 ||
-        !result.game_token) {
-      throw new Error(
-        result.error || "Gagal memulakan permainan"
-      );
-    }
-
-    sessionStorage.setItem(
-      "game_token",
-      result.game_token
-    );
+    gameToken = result.game_token;
+    sessionStorage.setItem("game_token", gameToken);
 
     startButton.style.display = "none";
-    message.textContent = "";
-
-    // Paparkan soalan selepas sesi permainan dicipta
-    await loadQuestions();
+    await showCurrentQuestion();
 
   } catch (error) {
     message.textContent = error.message;
     startButton.disabled = false;
-    startButton.textContent = "MULA BERMAIN";
   }
 });
 
-// Paparan awal sebelum pemain mula
-progress.textContent = "Bersedia untuk bermain?";
-question.textContent = "Tekan MULA BERMAIN";
-timer.textContent = "10";
-options.replaceChildren();
+// Sambung semula permainan apabila halaman dimuat semula
+if (gameToken) {
+  startButton.style.display = "none";
 
+  showCurrentQuestion().catch(error => {
+    message.textContent = error.message;
+  });
+}
 </script>
 </body>
 </html>
