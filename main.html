@@ -313,7 +313,75 @@ function finishGame(result) {
 }
 
  
+
+let whatsappURL = "";
+let claimRecorded = false;
+
 claimButton.addEventListener("click", async () => {
+  // Jika tuntutan sudah direkodkan,
+  // buka WhatsApp tanpa menghantar tuntutan lagi.
+  if (claimRecorded) {
+    window.open(
+      whatsappURL,
+      "_blank",
+      "noopener,noreferrer"
+    );
+    return;
+  }
+
+  if (!gameToken || !finalResult) {
+    message.textContent =
+      "Sesi tuntutan tidak tersedia.";
+    return;
+  }
+
+  claimButton.disabled = true;
+  claimButton.textContent = "Merekodkan tuntutan...";
+
+  try {
+    const result = await apiRequest(
+      "claim-prize",
+      "POST",
+      gameToken,
+      {}
+    );
+
+    const amount = Number(result.amount).toFixed(2);
+
+    const whatsappMessage =
+      "Salam Admin Teka-Teki 30 Soalan.\n\n" +
+      "Saya ingin membuat tuntutan hadiah.\n" +
+      "Markah: " + finalResult.correct_answers + "/30\n" +
+      "Jumlah hadiah: RM" + amount + "\n" +
+      "ID Tuntutan: " + result.claim_id + "\n\n" +
+      "Saya akan lampirkan screenshot keputusan " +
+      "untuk semakan admin.";
+
+    whatsappURL =
+      "https://wa.me/60194607688?text=" +
+      encodeURIComponent(whatsappMessage);
+
+    claimRecorded = true;
+
+    message.textContent =
+      "Tuntutan berjaya direkodkan. " +
+      "Sila buka WhatsApp dan lampirkan screenshot.";
+
+    claimButton.textContent = "BUKA WHATSAPP";
+    claimButton.disabled = false;
+
+  } catch (error) {
+    message.textContent =
+      "Gagal merekodkan tuntutan: " +
+      error.message;
+
+    claimButton.textContent =
+      "TUNTUT HADIAH MELALUI WHATSAPP";
+
+    claimButton.disabled = false;
+  }
+});
+
   if (!gameToken || !finalResult) {
     message.textContent =
       "Sesi tuntutan tidak tersedia.";
